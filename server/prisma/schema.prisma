@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // In a real app, hash this. For MVP, simple text or mock hash.
+  role      String   @default("cashier") // 'cashier', 'manager', 'storage', 'courier'
+  name      String
+  orders    Order[]  @relation("CashierOrders")
+  deliveries Order[] @relation("CourierOrders")
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id         String      @id @default(uuid())
+  name       String
+  barcode    String   @unique
+  unitType   String   // 'piece', 'kg', 'length'
+  unit       String   // 'pcs', 'kg', 'm'
+  stock      Float    @default(0)
+  buyPrice   Float
+  sellPrice  Float
+  image      String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  orderItems OrderItem[]
+  promotions Promotion[] @relation("ProductPromotions")
+}
+
+model Category {
+  id        String    @id // slug-like id, e.g. 'fruits'
+  name      String    // Display name, e.g. 'Fruits'
+  products  Product[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  number      Int      @default(0)
+  date        DateTime @default(now())
+  cashierId   String
+  cashier     User     @relation("CashierOrders", fields: [cashierId], references: [id])
+  courierId   String?
+  courier     User?    @relation("CourierOrders", fields: [courierId], references: [id])
+  total       Float
+  type        String   // 'local', 'delivery'
+  status      String   @default("completed") // 'completed', 'pending', 'cancelled'
+  cancelReason String?
+  deliveryAddress String?
+  deliveryFee Float?
+  customerPhone String?
+  receiverName String?
+  paymentMethod String @default("cash") // 'cash', 'card'
+  note        String?
+  items       OrderItem[]
+}
+
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  name      String  @default("Unknown Product") // Snapshot of product name
+  quantity  Float
+  price     Float   // Snapshot of sell price
+  originalPrice Float @default(0) // Snapshot of original sell price before discount
+  cost      Float   @default(0) // Snapshot of buy price
+}
+
+model Promotion {
+  id        String    @id @default(uuid())
+  name      String
+  type      String    // 'percentage', 'fixed'
+  value     Float
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean   @default(true)
+  products  Product[] @relation("ProductPromotions")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
